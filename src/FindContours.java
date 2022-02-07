@@ -1,11 +1,13 @@
 
-import java.awt.BorderLayout;
-import java.awt.Container;
-import java.awt.Image;
+import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import javax.imageio.ImageIO;
 import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
@@ -14,13 +16,9 @@ import javax.swing.JPanel;
 import javax.swing.JSlider;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
-import org.opencv.core.Core;
-import org.opencv.core.CvType;
-import org.opencv.core.Mat;
-import org.opencv.core.MatOfPoint;
+
+import org.opencv.core.*;
 import org.opencv.core.Point;
-import org.opencv.core.Scalar;
-import org.opencv.core.Size;
 import org.opencv.highgui.HighGui;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
@@ -33,10 +31,19 @@ class FindContours {
     private int threshold = 100;
     private Random rng = new Random(12345);
 
-    private int nbCFU;
+    private static int nbCFU;
     private int nbAutresContours;
+    private static BufferedImage imageFinale;
 
-    public int getNbCFU() {
+    public static BufferedImage getImageFinale() {
+        return imageFinale;
+    }
+
+    public static void setImageFinale(BufferedImage imageFinale) {
+        FindContours.imageFinale = imageFinale;
+    }
+
+    public static int getNbCFU() {
         return nbCFU;
     }
 
@@ -52,12 +59,8 @@ class FindContours {
         this.nbAutresContours = nbAutresContours;
     }
 
-
-
-    public FindContours(String[] args) {
-        String filename=args.length>0 ? args[0] : "C:\\Users\\Administrateur\\Desktop\\Formation java\\projet fil rouge\\photos\\photos benoit\\2 ok.jpg";
-
-        //String filename=url;
+    public FindContours(String[] args) throws Exception {
+        String filename=args.length>0 ? args[0] : "C:\\Users\\Administrateur\\Desktop\\Formation java\\projet fil rouge\\photos\\photos benoit\\10 nickel avec cropcircle.jpg";
 
         Mat src = Imgcodecs.imread(filename);
         if (src.empty()) {
@@ -71,14 +74,16 @@ class FindContours {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         // Set up the content pane.
         Image img = HighGui.toBufferedImage(src);
+
         addComponentsToPane(frame.getContentPane(), img);
         // Use the content pane's default BorderLayout. No need for
         // setLayout(new BorderLayout());
         // Display the window.
         frame.pack();
         frame.setVisible(true);
-        update();
+        BufferedImage imageAAfficher=update((BufferedImage) img);
     }
+
     private void addComponentsToPane(Container pane, Image img) {
         if (!(pane.getLayout() instanceof BorderLayout)) {
             pane.add(new JLabel("Container doesn't use BorderLayout!"));
@@ -97,7 +102,11 @@ class FindContours {
             public void stateChanged(ChangeEvent e) {
                 JSlider source = (JSlider) e.getSource();
                 threshold = source.getValue();
-                update();
+                try {
+                    update(null);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
             }
         });
         sliderPanel.add(slider);
@@ -110,7 +119,8 @@ class FindContours {
         imgPanel.add(imgContoursLabel);
         pane.add(imgPanel, BorderLayout.CENTER);
     }
-    private void update() {
+
+    private BufferedImage update(BufferedImage img) throws Exception {
         Mat cannyOutput = new Mat();
         Imgproc.Canny(srcGray, cannyOutput, threshold, threshold * 2);
         List<MatOfPoint> contours = new ArrayList<>();
@@ -134,22 +144,29 @@ class FindContours {
         this.setNbAutresContours(contoursEloignesDeLaMediane.size());
 
         for (int u = 0; u < contoursEloignesDeLaMediane.size(); u++) {
-            Scalar color = new Scalar(120,120,120);
+            Scalar color = new Scalar(255,0,0);
             Imgproc.drawContours(drawing, contoursEloignesDeLaMediane, u, color, 1, Imgproc.LINE_8, hierarchy, 0, new Point());
             compteur++;
         }
 
         for (int i = 0; i < contours.size(); i++) {
-            Scalar color = new Scalar(256, 18, 27);
+            Scalar color = new Scalar(0, 0, 255);
             Imgproc.drawContours(drawing, contours, i, color, 1, Imgproc.LINE_8, hierarchy, 0, new Point());
             compteur++;
         }
 
+        BufferedImage bufResult=Mat2BufferedImage(drawing);
+        BufferedImage bufCFUEntoures= getImageSuperposee(img, bufResult);
+        setImageFinale(bufCFUEntoures);
         imgContoursLabel.setIcon(new ImageIcon(HighGui.toBufferedImage(drawing)));
         imgContoursLabel.setText("nombre de CFU trouvés : "+contours.size()+" - nombre autres contours : "+contoursEloignesDeLaMediane.size());
         frame.repaint();
-    }
 
+        return bufCFUEntoures;
+    }
+    public static BufferedImage Mat2BufferedImage(Mat mat) throws IOException {
+        return (BufferedImage) HighGui.toBufferedImage(mat);
+    }
 
     public List<MatOfPoint> getListeContoursEloignes(List<MatOfPoint> contours,int mediane){
         List<MatOfPoint> listeResult=new ArrayList<MatOfPoint>();
@@ -165,7 +182,7 @@ class FindContours {
         ///////////finir
         for (int i=0;i<=contours.size()-1;i++){
             //System.out.println("taille "+i+" : "+contours.get(i).toArray().length);
-            if (Math.abs(mediane-contours.get(i).toArray().length)>1.2*plusPetitEcart){
+            if (Math.abs(mediane-contours.get(i).toArray().length)>2*plusPetitEcart){
                 listeResult.add(contours.get(i));
                 contours.remove(i);
             }
@@ -232,6 +249,11 @@ class FindContours {
         return resultat;
     }
 
+    public static int test(String[] args) throws Exception {
+        System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+        FindContours fc= new FindContours(args);
+        return fc.getNbCFU();
+    }
 
     public static void main(String[] args) {
         // Load the native OpenCV  library
@@ -241,11 +263,42 @@ class FindContours {
         javax.swing.SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
-                new FindContours(args);
+                try {
+                    new FindContours(args);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         });
+
     }
 
+    public static BufferedImage getImageSuperposee(BufferedImage photoOriginale, BufferedImage bufImageCFUDetect){
+        for(int y = 0; y < photoOriginale.getHeight(); y++) {
+            for (int x = 0; x < photoOriginale.getWidth(); x++) {
+                if (bufImageCFUDetect.getRGB(x,y)!=-16777216)
+                    photoOriginale.setRGB(x, y, bufImageCFUDetect.getRGB(x, y));
+            }
+        }
 
+        return photoOriginale;
+    }
 
+    public static void afficherBuf(BufferedImage im){
+        ImageIcon imageIcon = new ImageIcon(im);
+
+        JFrame jFrame = new JFrame();
+
+        jFrame.setLayout(new FlowLayout());
+
+        jFrame.setSize(500, 500);
+        JLabel jLabel = new JLabel();
+
+        jLabel.setIcon(imageIcon);
+        jFrame.add(jLabel);
+        jFrame.setVisible(true);
+
+        jFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+    }
 }
