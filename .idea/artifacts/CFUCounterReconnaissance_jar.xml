@@ -1,0 +1,10 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="CFUCounterReconnaissance:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/CFUCounterReconnaissance_jar</output-path>
+    <root id="archive" name="CFUCounterReconnaissance.jar">
+      <element id="module-output" name="CFUCounterReconnaissance" />
+      <element id="library" level="project" name="x64" />
+      <element id="extracted-dir" path="$USER_HOME$/Desktop/install/opencv/build/java/opencv-454.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>
